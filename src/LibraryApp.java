@@ -1,164 +1,93 @@
-import crud.crud_book;
-import crud.crud_library;
-import crud.crud_publisher;
-import crud.crud_reader;
-
 import javax.swing.*;
-import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.Statement;
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 
-public class LibraryApp extends JFrame {
-    private Connection c = null;
-    private Statement stmt = null;
+public class LibraryApp {
 
-    public LibraryApp() {
-        initializeDatabaseConnection();
-        if (c == null || stmt == null) {
-            JOptionPane.showMessageDialog(this, "Не удалось подключиться к базе данных", "Ошибка", JOptionPane.ERROR_MESSAGE);
-            System.exit(1);
+    private static Connection connection;
+    private static Statement stmt;
+
+    public static void main(String[] args) {
+        // Подключение к базе данных
+        connectToDatabase();
+
+        // Получаем список библиотек из БД
+        List<Library> libraries = getLibraries();
+
+        // Если нет библиотек в БД
+        if (libraries.isEmpty()) {
+            JOptionPane.showMessageDialog(null, "В базе данных нет библиотек", "Ошибка", JOptionPane.ERROR_MESSAGE);
+            System.exit(0);
         }
 
-        setupUI();
+        // Создаем диалог выбора библиотеки
+        Library selectedLibrary = (Library) JOptionPane.showInputDialog(
+                null,
+                "Выберите библиотеку:",
+                "Выбор библиотеки",
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                libraries.toArray(),
+                libraries.get(0));
+
+        // Если пользователь нажал "Отмена"
+        if (selectedLibrary == null) {
+            System.exit(0);
+        }
+
+        // Создаем и показываем главное окно приложения
+        new LibraryAppMainWindow(selectedLibrary.getId(), selectedLibrary.getName(), connection, stmt);
     }
 
-    private void initializeDatabaseConnection() {
+    private static void connectToDatabase() {
         try {
             Class.forName("org.postgresql.Driver");
-            c = DriverManager.getConnection("jdbc:postgresql://localhost:5432/postgres", "postgres", "1234");
-            stmt = c.createStatement();
+            connection = DriverManager.getConnection("jdbc:postgresql://localhost:5432/postgres", "postgres", "1234");
+            stmt = connection.createStatement();
         } catch (Exception e) {
-            e.printStackTrace();
+            JOptionPane.showMessageDialog(null, "Ошибка подключения к базе данных: " + e.getMessage(), "Ошибка", JOptionPane.ERROR_MESSAGE);
+            System.exit(0);
         }
     }
 
-    private void setupUI() {
-        setTitle("Библиотечная система");
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(800, 600);
-        setLocationRelativeTo(null);
+    private static List<Library> getLibraries() {
+        List<Library> libraries = new ArrayList<>();
+        try {
+            String sql = "SELECT id, name FROM librarybrunch;";
+            ResultSet rs = stmt.executeQuery(sql);
 
-        // Создаем панель с вкладками
-        JTabbedPane tabbedPane = new JTabbedPane();
-
-        // Добавляем вкладки для каждого раздела
-        tabbedPane.addTab("Книги", createBookPanel());
-        tabbedPane.addTab("Читатели", createReaderPanel());
-        tabbedPane.addTab("Издательства", createPublisherPanel());
-        tabbedPane.addTab("Филиалы", createLibraryPanel());
-
-        add(tabbedPane);
-    }
-
-    private JPanel createBookPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-
-        // Кнопки управления
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JButton readBtn = new JButton("Показать все книги");
-        JButton createBtn = new JButton("Добавить книгу");
-        JButton updateBtn = new JButton("Изменить книгу");
-        JButton deleteBtn = new JButton("Удалить книгу");
-
-        buttonPanel.add(readBtn);
-        buttonPanel.add(createBtn);
-        buttonPanel.add(updateBtn);
-        buttonPanel.add(deleteBtn);
-
-        // Область для вывода данных
-        JTextArea outputArea = new JTextArea();
-        outputArea.setEditable(false);
-        JScrollPane scrollPane = new JScrollPane(outputArea);
-
-        panel.add(buttonPanel, BorderLayout.NORTH);
-        panel.add(scrollPane, BorderLayout.CENTER);
-
-        // Обработчики событий
-        readBtn.addActionListener(e -> {
-            outputArea.setText("");
-            crud_book.read(stmt);
-        });
-
-        createBtn.addActionListener(e -> {
-            JPanel inputPanel = new JPanel(new GridLayout(5, 2));
-
-            JTextField articleField = new JTextField();
-            JTextField nameField = new JTextField();
-            JTextField yearField = new JTextField();
-            JTextField genreField = new JTextField();
-            JTextField publisherField = new JTextField();
-
-            inputPanel.add(new JLabel("Артикул:"));
-            inputPanel.add(articleField);
-            inputPanel.add(new JLabel("Название:"));
-            inputPanel.add(nameField);
-            inputPanel.add(new JLabel("Год издания:"));
-            inputPanel.add(yearField);
-            inputPanel.add(new JLabel("Жанр:"));
-            inputPanel.add(genreField);
-            inputPanel.add(new JLabel("ID издательства:"));
-            inputPanel.add(publisherField);
-
-            int result = JOptionPane.showConfirmDialog(this, inputPanel,
-                    "Добавить новую книгу", JOptionPane.OK_CANCEL_OPTION);
-
-            if (result == JOptionPane.OK_OPTION) {
-                try {
-                    int article = Integer.parseInt(articleField.getText());
-                    String name = nameField.getText();
-                    int year = Integer.parseInt(yearField.getText());
-                    String genre = genreField.getText();
-                    int publisherId = Integer.parseInt(publisherField.getText());
-
-                    crud_book.create(stmt, article, name, year, genre, publisherId);
-                    outputArea.append("Книга успешно добавлена!\n");
-                } catch (NumberFormatException ex) {
-                    JOptionPane.showMessageDialog(this, "Некорректные данные", "Ошибка", JOptionPane.ERROR_MESSAGE);
-                }
+            while (rs.next()) {
+                libraries.add(new Library(rs.getInt("id"), rs.getString("name")));
             }
-        });
+            rs.close();
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(null, "Ошибка при получении списка библиотек: " + e.getMessage(), "Ошибка", JOptionPane.ERROR_MESSAGE);
+            System.exit(0);
+        }
+        return libraries;
+    }
+}
 
-        // Аналогично добавьте обработчики для updateBtn и deleteBtn
+class Library {
+    private int id;
+    private String name;
 
-        return panel;
+    public Library(int id, String name) {
+        this.id = id;
+        this.name = name;
     }
 
-    private JPanel createReaderPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-        // Аналогично createBookPanel()
-        return panel;
+    public int getId() {
+        return id;
     }
 
-    private JPanel createPublisherPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-        // Аналогично createBookPanel()
-        return panel;
-    }
-
-    private JPanel createLibraryPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-        // Аналогично createBookPanel()
-        return panel;
+    public String getName() {
+        return name;
     }
 
     @Override
-    public void dispose() {
-        try {
-            if (stmt != null) stmt.close();
-            if (c != null) c.close();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        super.dispose();
-    }
-
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            LibraryApp app = new LibraryApp();
-            app.setVisible(true);
-        });
+    public String toString() {
+        return name;
     }
 }

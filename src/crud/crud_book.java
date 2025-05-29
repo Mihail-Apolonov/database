@@ -6,7 +6,7 @@ import java.sql.Statement;
 public class crud_book {
 
     public static void read(Statement stmt) {
-        String sql = "select article, name, year, genre, reader_id from book;";
+        String sql = "select article, name, year, genre from book;";
         try {
             ResultSet rs = stmt.executeQuery(sql);
 
