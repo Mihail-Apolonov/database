@@ -1,43 +1,62 @@
 import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
 public class LibraryApp {
-
     private static Connection connection;
     private static Statement stmt;
 
     public static void main(String[] args) {
-        // Подключение к базе данных
         connectToDatabase();
-
-        // Получаем список библиотек из БД
         List<Library> libraries = getLibraries();
 
-        // Если нет библиотек в БД
         if (libraries.isEmpty()) {
             JOptionPane.showMessageDialog(null, "В базе данных нет библиотек", "Ошибка", JOptionPane.ERROR_MESSAGE);
             System.exit(0);
         }
 
-        // Создаем диалог выбора библиотеки
-        Library selectedLibrary = (Library) JOptionPane.showInputDialog(
-                null,
-                "Выберите библиотеку:",
-                "Выбор библиотеки",
-                JOptionPane.QUESTION_MESSAGE,
-                null,
-                libraries.toArray(),
-                libraries.get(0));
+        JFrame selectionFrame = new JFrame("Выбор режима работы");
+        selectionFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        selectionFrame.setSize(400, 200);
+        selectionFrame.setLocationRelativeTo(null);
 
-        // Если пользователь нажал "Отмена"
-        if (selectedLibrary == null) {
-            System.exit(0);
-        }
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
-        // Создаем и показываем главное окно приложения
-        new LibraryAppMainWindow(selectedLibrary.getId(), selectedLibrary.getName(), connection, stmt);
+        JPanel libraryPanel = new JPanel(new BorderLayout(5, 5));
+        libraryPanel.add(new JLabel("Выберите библиотеку:"), BorderLayout.NORTH);
+        JComboBox<Library> libraryComboBox = new JComboBox<>(libraries.toArray(new Library[0]));
+        libraryPanel.add(libraryComboBox, BorderLayout.CENTER);
+
+        panel.add(libraryPanel, BorderLayout.CENTER);
+
+        JPanel buttonPanel = new JPanel(new GridLayout(1, 2, 10, 0));
+
+        JButton userButton = new JButton("Войти как пользователь");
+        userButton.addActionListener(e -> {
+            Library selectedLibrary = (Library) libraryComboBox.getSelectedItem();
+            if (selectedLibrary != null) {
+                new LibraryAppMainWindow(selectedLibrary.getId(), selectedLibrary.getName(), connection, stmt);
+                selectionFrame.dispose();
+            }
+        });
+
+        JButton adminButton = new JButton("Войти как администратор");
+        adminButton.addActionListener(e -> {
+            selectionFrame.dispose();
+            new AdminPanel(connection); // Передаем соединение в AdminPanel
+        });
+
+        buttonPanel.add(userButton);
+        buttonPanel.add(adminButton);
+        panel.add(buttonPanel, BorderLayout.SOUTH);
+
+        selectionFrame.add(panel);
+        selectionFrame.setVisible(true);
     }
 
     private static void connectToDatabase() {

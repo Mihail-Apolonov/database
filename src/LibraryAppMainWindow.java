@@ -111,7 +111,7 @@ public class LibraryAppMainWindow {
         JPanel tablesPanel = new JPanel(new GridLayout(1, 2, 10, 10));
 
         // Таблица с книгами (левая)
-        String[] booksColumns = {"Артикул", "Название", "Жанр", "Статус"};
+        String[] booksColumns = {"Артикул", "Название", "Год", "Жанр"};
         DefaultTableModel booksModel = new DefaultTableModel(booksColumns, 0);
         JTable booksTable = new JTable(booksModel);
         booksTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
